@@ -1,6 +1,8 @@
 import time
 from datetime import datetime
 from tkinter import *
+import threading
+
 
 # import notify2  # not working in windows
 from win10toast import ToastNotifier
@@ -10,6 +12,7 @@ from win10toast import ToastNotifier
 class BreakReminder:
 
     def __init__(self, main_window):
+        self.bg_timer_thread = None
         self.break_at_times = [];
         self.resume_at_times = [];
         print("BreakReminder Obj Has Been Created.")
@@ -39,7 +42,8 @@ class BreakReminder:
         self.entry_duration = Entry(main_window);
 
         self.button_start = Button(main_window, text="Start");
-        self.quit_button = Button(main_window, text="Quit");
+        self.button_quit = Button(main_window, text="Quit");
+        self.button_reset = Button(main_window, text="Reset");
 
     def create_window(self, main_window):
 
@@ -50,11 +54,23 @@ class BreakReminder:
         self.entry_interval.grid(row=0, column=1);
         self.entry_duration.grid(row=1, column=1);
 
-        self.button_start.grid(row=3, columnspan=2)
+        self.button_reset.grid(row=4, column=0)
+        self.button_start.grid(row=4, column=1)
         self.button_start.bind("<Button-1>", self.calculate_break_timings)
+        self.button_reset.bind("<Button-1>", self.reset_break_timings)
 
     def create_new_profile(self):
         print("Create new profile clicked")
+
+    def reset_break_timings(self):
+        self.button_reset.config(state=DISABLED)
+        self.button_start['state'] = NORMAL
+
+        # Kill the thread who is running this process in background.
+        if self.bg_timer_thread.is_alive() == TRUE :
+            self.bg_timer_thread.stop();
+            self.bg_timer_thread.join();
+
 
     def calculate_break_timings(self, event):
         """
@@ -107,7 +123,10 @@ class BreakReminder:
 
         print(self.break_at_times)
         print(self.resume_at_times)
-        self.start_break_reminder()
+        self.button_start.config(state=DISABLED)
+        self.button_reset.config(state=NORMAL)
+
+        self.bg_timer_thread = threading.Thread(target=self.start_break_reminder(), name="bg_timer_thread")
 
     '''
     def notify(self, title, content):
@@ -178,8 +197,8 @@ class BreakReminder:
 
             # If we run out of break times
             print("len(self.break_at_times) : "+str(len(self.break_at_times)))
-            if len(self.break_at_times) == 0:
-                self.calculate_break_timings();
+            if len(self.break_at_times) == 0 and len(self.resume_at_times) == 0:
+                self.calculate_break_timings("");       #Passing "" is working but need to fix that.
 
             print("Sleeping for 10 secs")
             time.sleep(10)
@@ -190,6 +209,8 @@ class BreakReminder:
 
 root = Tk()
 root.title("Break Reminder")
+root.geometry("350x200") #You want the size of the app to be 500x500
+root.resizable(0, 0) #Don't allow resizing in the x or y direction
 br = BreakReminder(root);
 br.create_window(root);
 root.mainloop();
